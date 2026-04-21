@@ -2,8 +2,6 @@
 
 A lightweight terminal note-taking app inspired by Khmer wall carvings. Manage your markdown notes with a Neovim-style dashboard and Telescope-style fuzzy finder.
 
-<img width="582" height="261" alt="image" src="https://github.com/user-attachments/assets/1bfb490e-5495-4fbd-b52e-c954e1f142cc" />
-
 ## Features
 
 - **Dashboard** — ASCII art header, quick actions, recent notes
