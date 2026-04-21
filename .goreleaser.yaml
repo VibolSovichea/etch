@@ -47,6 +47,7 @@ brews:
   - repository:
       owner: vibolsovichea
       name: homebrew-scripture
+      token: "{{ .Env.HOMEBREW_TAP_GITHUB_TOKEN }}"
     homepage: "https://github.com/vibolsovichea/scripture"
     description: "A terminal note-taking app inspired by Khmer wall carvings"
     license: "MIT"
