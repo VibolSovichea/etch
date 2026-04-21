@@ -78,7 +78,6 @@ type AppModel struct {
 	newTitle    string
 	createInput textinput.Model
 
-	// Editor
 	editor EditorModel
 
 	err error
@@ -140,8 +139,6 @@ func (m AppModel) Init() tea.Cmd {
 	return nil
 }
 
-// --- Update ---
-
 func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case editorCloseMsg:
@@ -172,7 +169,6 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
-	// Non-key messages for editor (e.g. blink)
 	if m.view == viewEditor {
 		var cmd tea.Cmd
 		m.editor, cmd = m.editor.Update(msg)
@@ -325,8 +321,6 @@ func (m AppModel) handleFinderDelete(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// --- Create Update ---
-
 func (m AppModel) updateCreate(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	switch msg.String() {
 	case "esc":
@@ -354,7 +348,6 @@ func (m AppModel) updateCreate(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.createInput.Placeholder = "e.g. project, idea, draft (optional)"
 			return m, nil
 		}
-		// createStepTags — finalize
 		tags := parseTags(m.createInput.Value())
 		dir := filepath.Join(m.cfg.VaultPath, "notes")
 		n, err := note.Create(dir, m.newTitle, tags)
@@ -375,8 +368,6 @@ func (m AppModel) updateCreate(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, cmd
 }
 
-// ===== Views =====
-
 func (m AppModel) View() string {
 	if m.width == 0 {
 		return ""
@@ -394,12 +385,9 @@ func (m AppModel) View() string {
 	}
 }
 
-// --- Dashboard View ---
-
 func (m AppModel) viewDashboard() string {
 	var sections []string
 
-	// ASCII art
 	art := asciiStyle.Render(m.ascii)
 	sections = append(sections, art)
 	sections = append(sections, "")
@@ -426,7 +414,6 @@ func (m AppModel) viewDashboard() string {
     sections = append(sections, "")
 }
 
-	// Recent files
 	if len(m.recent) > 0 {
 		sections = append(sections, "")
 		sections = append(sections, "      "+dashRecentTitleStyle.Render("Recent Notes"))
@@ -452,7 +439,6 @@ func (m AppModel) viewDashboard() string {
 		}
 	}
 
-	// Footer
 	sections = append(sections, "")
 	sections = append(sections, "")
 	sections = append(sections, dashFooterStyle.Render(
@@ -482,7 +468,6 @@ func (m AppModel) viewFinder() string {
 	previewW := modalW - listW
 	innerW := modalW - 2 // inside border
 
-	// Content area height: modal - title - search bar - help - dividers
 	contentH := modalH - 5
 	if contentH < 3 {
 		contentH = 3
@@ -566,12 +551,10 @@ func (m AppModel) finderList(w, h int) string {
 		}
 	}
 
-	// Pad to fill height
 	for len(lines) < h {
 		lines = append(lines, "")
 	}
 
-	// Count indicator on last line
 	countStr := finderCountStyle.Render(
 		fmt.Sprintf("  %d/%d", len(m.filtered), len(m.notes)),
 	)
@@ -658,8 +641,6 @@ func (m AppModel) finderHelp() string {
 	return " " + strings.Join(parts, "  ")
 }
 
-// --- Create Note View (distinct from finder) ---
-
 func (m AppModel) viewCreate() string {
 	modalW := min(m.width-4, 60)
 	if modalW < 30 {
@@ -667,13 +648,9 @@ func (m AppModel) viewCreate() string {
 	}
 	innerW := modalW - 2
 
-	// Title
 	title := createTitleStyle.Render(" New Note")
-
-	// Divider
 	div := finderPreviewDivStyle.Render(strings.Repeat("─", innerW))
 
-	// Step indicators
 	step1Label := "Title"
 	step2Label := "Tags"
 
@@ -689,7 +666,6 @@ func (m AppModel) viewCreate() string {
 
 	steps := fmt.Sprintf(" %s    %s", step1, step2)
 
-	// Show confirmed title when on tags step
 	var titlePreview string
 	if m.createStep == createStepTags {
 		titlePreview = fmt.Sprintf(" %s %s",
@@ -698,7 +674,6 @@ func (m AppModel) viewCreate() string {
 		)
 	}
 
-	// Input field
 	var inputLabel string
 	if m.createStep == createStepTitle {
 		inputLabel = createLabelStyle.Render(" Title")
@@ -707,11 +682,9 @@ func (m AppModel) viewCreate() string {
 	}
 	inputLine := fmt.Sprintf(" %s\n %s", inputLabel, m.createInput.View())
 
-	// Help
 	help := " " + helpKeyStyle.Render("Enter") + helpDescStyle.Render(" next  ") +
 		helpKeyStyle.Render("Esc") + helpDescStyle.Render(" back")
 
-	// Compose
 	var parts []string
 	parts = append(parts, title)
 	parts = append(parts, div)
@@ -739,8 +712,6 @@ func (m AppModel) viewCreate() string {
 		framed,
 	)
 }
-
-// ===== Helpers =====
 
 func (m *AppModel) clampFinderScroll() {
 	visibleH := m.finderVisibleCount()

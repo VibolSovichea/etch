@@ -3,7 +3,6 @@ package ui
 import "github.com/charmbracelet/lipgloss"
 
 var (
-	// Gutter
 	edGutterStyle = lipgloss.NewStyle().
 			Foreground(darkStone).
 			Width(5).
@@ -20,14 +19,12 @@ var (
 	edGutterSepStyle = lipgloss.NewStyle().
 				Foreground(darkStone)
 
-	// Text
 	edTextStyle = lipgloss.NewStyle().
 			Foreground(ivory)
 
 	edCursorBlockStyle = lipgloss.NewStyle().
 				Reverse(true)
 
-	// Status bar
 	edStatusBarStyle = lipgloss.NewStyle().
 				Background(lipgloss.Color("#2A2825")).
 				Foreground(stone)
@@ -69,7 +66,6 @@ var (
 	edCmdLineStyle = lipgloss.NewStyle().
 			Foreground(sand)
 
-	// Markdown highlighting
 	mdHeadingStyle = lipgloss.NewStyle().
 			Foreground(gold).
 			Bold(true)

@@ -12,7 +12,7 @@ import (
 	"github.com/charmbracelet/lipgloss"
 )
 
-const gutterWidth = 6 // "  42 │ "
+const gutterWidth = 6
 
 type editorCloseMsg struct{}
 
@@ -20,7 +20,7 @@ type EditorModel struct {
 	ta       textarea.Model
 	vim      vimState
 	note     *note.Note
-	original string // original body to track modifications
+	original string
 	width    int
 	height   int
 	err      error
@@ -31,11 +31,10 @@ func NewEditorModel(n *note.Note, width, height int) EditorModel {
 	ta.SetValue(n.Body)
 	ta.ShowLineNumbers = false
 	ta.SetWidth(width - gutterWidth - 2)
-	ta.SetHeight(height - 2) // status bar + command line
-	ta.CharLimit = 0         // no limit
-	ta.Blur()                // start in normal mode
+	ta.SetHeight(height - 2)
+	ta.CharLimit = 0
+	ta.Blur()
 
-	// Style the textarea to match theme
 	ta.FocusedStyle.Base = lipgloss.NewStyle().Foreground(ivory)
 	ta.FocusedStyle.CursorLine = lipgloss.NewStyle().Foreground(ivory)
 	ta.FocusedStyle.Placeholder = lipgloss.NewStyle().Foreground(darkStone)
@@ -89,14 +88,11 @@ func (m EditorModel) Update(msg tea.Msg) (EditorModel, tea.Cmd) {
 			m.Save()
 			return m, func() tea.Msg { return editorCloseMsg{} }
 		case vimCmdPassthrough:
-			// Insert mode — let textarea handle it
 			var taCmd tea.Cmd
 			m.ta, taCmd = m.ta.Update(msg)
 			return m, taCmd
 		}
 
-		// For 'o' key in normal mode — we switched to insert and need
-		// to insert a newline
 		if m.vim.mode == vimInsert {
 			m.ta.Focus()
 		} else {
@@ -109,30 +105,25 @@ func (m EditorModel) Update(msg tea.Msg) (EditorModel, tea.Cmd) {
 }
 
 func (m EditorModel) View() string {
-	// Get content lines
 	content := m.ta.Value()
 	lines := strings.Split(content, "\n")
 
 	cursorRow := m.ta.Line()
 	cursorCol := m.ta.LineInfo().ColumnOffset
 
-	// Calculate viewport
-	editorH := m.height - 2 // status bar + help/command line
+	editorH := m.height - 2
 	if editorH < 1 {
 		editorH = 1
 	}
 
-	// Determine scroll offset
 	scrollOff := 0
 	if cursorRow >= editorH {
 		scrollOff = cursorRow - editorH + 1
 	}
 
-	// Render visible lines with gutter and highlighting
 	var viewLines []string
 	inCodeBlock := false
 
-	// Pre-process code block state for lines before viewport
 	for i := 0; i < scrollOff && i < len(lines); i++ {
 		trimmed := strings.TrimSpace(lines[i])
 		if strings.HasPrefix(trimmed, "```") {
@@ -149,14 +140,12 @@ func (m EditorModel) View() string {
 		lineIdx := scrollOff + vi
 
 		if lineIdx >= len(lines) {
-			// Tilde for empty lines past content (like vim)
 			gutter := edGutterStyle.Render("~")
 			sep := edGutterSepStyle.Render("│")
 			viewLines = append(viewLines, gutter+sep)
 			continue
 		}
 
-		// Gutter
 		lineNum := fmt.Sprintf("%d", lineIdx+1)
 		var gutter string
 		if lineIdx == cursorRow {
@@ -166,21 +155,17 @@ func (m EditorModel) View() string {
 		}
 		sep := edGutterSepStyle.Render("│")
 
-		// Content with highlighting
 		line := lines[lineIdx]
 		var styledLine string
 		styledLine, inCodeBlock = highlightLine(line, inCodeBlock)
 
-		// Cursor rendering in normal mode
 		if lineIdx == cursorRow && m.vim.mode == vimNormal {
 			styledLine = renderCursorLine(line, cursorCol, inCodeBlock)
 		}
 
-		// Truncate if too wide
 		viewLines = append(viewLines, gutter+sep+" "+styledLine)
 	}
 
-	// Pad to fill
 	for len(viewLines) < editorH {
 		gutter := edGutterStyle.Render("~")
 		sep := edGutterSepStyle.Render("│")
@@ -189,10 +174,7 @@ func (m EditorModel) View() string {
 
 	editor := strings.Join(viewLines, "\n")
 
-	// Status bar
 	statusBar := m.renderStatusBar(cursorRow, cursorCol)
-
-	// Command / help line
 	cmdLine := m.renderCmdLine()
 
 	return lipgloss.JoinVertical(lipgloss.Left, editor, statusBar, cmdLine)
@@ -203,7 +185,6 @@ func renderCursorLine(line string, col int, inCodeBlock bool) string {
 		return edCursorBlockStyle.Render(" ")
 	}
 
-	// Render the line with a block cursor at the cursor position
 	var result strings.Builder
 
 	runes := []rune(line)
@@ -212,12 +193,10 @@ func renderCursorLine(line string, col int, inCodeBlock bool) string {
 		if i == col {
 			result.WriteString(edCursorBlockStyle.Render(s))
 		} else {
-			// Apply basic highlighting
 			result.WriteString(edTextStyle.Render(s))
 		}
 	}
 
-	// If cursor is at end of line
 	if col >= len(runes) {
 		result.WriteString(edCursorBlockStyle.Render(" "))
 	}
@@ -226,7 +205,6 @@ func renderCursorLine(line string, col int, inCodeBlock bool) string {
 }
 
 func (m EditorModel) renderStatusBar(row, col int) string {
-	// Mode badge
 	var modeBadge string
 	switch m.vim.mode {
 	case vimInsert:
@@ -237,19 +215,14 @@ func (m EditorModel) renderStatusBar(row, col int) string {
 		modeBadge = edModeNormalStyle.Render("NORMAL")
 	}
 
-	// Filename
 	filename := edFileNameStyle.Render(filepath.Base(m.note.Path))
-
-	// Modified indicator
 	mod := ""
 	if m.Modified() {
 		mod = edModifiedStyle.Render("[+]")
 	}
 
-	// Position
 	pos := edPosStyle.Render(fmt.Sprintf("Ln %d, Col %d", row+1, col+1))
 
-	// Spacer
 	leftParts := modeBadge + filename + mod
 	leftW := lipgloss.Width(leftParts)
 	rightW := lipgloss.Width(pos)
@@ -267,7 +240,6 @@ func (m EditorModel) renderCmdLine() string {
 		return edCmdLineStyle.Render(":" + m.vim.cmdBuffer)
 	}
 
-	// Help hints
 	if m.vim.mode == vimInsert {
 		return helpDescStyle.Render(" Esc normal  Ctrl+S save  Ctrl+Q quit")
 	}

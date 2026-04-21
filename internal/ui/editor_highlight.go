@@ -4,40 +4,31 @@ import (
 	"strings"
 )
 
-// highlightLine applies markdown syntax highlighting to a single line.
-// inCodeBlock tracks fenced code block state across lines.
-// Returns the styled string and updated code block state.
 func highlightLine(line string, inCodeBlock bool) (string, bool) {
 	trimmed := strings.TrimSpace(line)
 
-	// Fenced code block toggle
 	if strings.HasPrefix(trimmed, "```") {
 		return mdCodeBlockStyle.Render(line), !inCodeBlock
 	}
 
-	// Inside code block — render entire line as code
 	if inCodeBlock {
 		return mdCodeBlockStyle.Render(line), true
 	}
 
-	// Horizontal rule
 	if trimmed == "---" || trimmed == "***" || trimmed == "___" {
 		return mdHrStyle.Render(line), false
 	}
 
-	// Headings
 	if strings.HasPrefix(trimmed, "# ") || strings.HasPrefix(trimmed, "## ") ||
 		strings.HasPrefix(trimmed, "### ") || strings.HasPrefix(trimmed, "#### ") ||
 		strings.HasPrefix(trimmed, "##### ") || strings.HasPrefix(trimmed, "###### ") {
 		return mdHeadingStyle.Render(line), false
 	}
 
-	// Blockquote
 	if strings.HasPrefix(trimmed, "> ") {
 		return mdBlockquoteStyle.Render(line), false
 	}
 
-	// List items — style the marker, then highlight rest inline
 	if len(trimmed) >= 2 {
 		if (trimmed[0] == '-' || trimmed[0] == '*' || trimmed[0] == '+') && trimmed[1] == ' ' {
 			idx := strings.Index(line, trimmed[:2])
@@ -46,7 +37,6 @@ func highlightLine(line string, inCodeBlock bool) (string, bool) {
 			rest := highlightInline(line[idx+2:])
 			return prefix + marker + " " + rest, false
 		}
-		// Numbered list
 		for i, c := range trimmed {
 			if c == '.' && i > 0 && i < len(trimmed)-1 && trimmed[i+1] == ' ' {
 				allDigits := true
@@ -68,11 +58,9 @@ func highlightLine(line string, inCodeBlock bool) (string, bool) {
 		}
 	}
 
-	// Regular line — apply inline highlighting
 	return highlightInline(line), false
 }
 
-// highlightInline applies inline markdown highlighting (bold, italic, code, links).
 func highlightInline(line string) string {
 	if line == "" {
 		return ""
@@ -82,7 +70,6 @@ func highlightInline(line string) string {
 	i := 0
 
 	for i < len(line) {
-		// Inline code: `code`
 		if line[i] == '`' {
 			end := strings.Index(line[i+1:], "`")
 			if end >= 0 {
@@ -92,7 +79,6 @@ func highlightInline(line string) string {
 			}
 		}
 
-		// Bold: **text**
 		if i+1 < len(line) && line[i] == '*' && line[i+1] == '*' {
 			end := strings.Index(line[i+2:], "**")
 			if end >= 0 {
@@ -102,7 +88,6 @@ func highlightInline(line string) string {
 			}
 		}
 
-		// Italic: *text* (single asterisk, not preceded by another *)
 		if line[i] == '*' && (i == 0 || line[i-1] != '*') {
 			end := strings.Index(line[i+1:], "*")
 			if end >= 0 && (i+end+2 >= len(line) || line[i+end+2] != '*') {
@@ -112,7 +97,6 @@ func highlightInline(line string) string {
 			}
 		}
 
-		// Italic: _text_
 		if line[i] == '_' {
 			end := strings.Index(line[i+1:], "_")
 			if end >= 0 {
@@ -122,7 +106,6 @@ func highlightInline(line string) string {
 			}
 		}
 
-		// Link: [text](url)
 		if line[i] == '[' {
 			closeBracket := strings.Index(line[i:], "](")
 			if closeBracket >= 0 {
@@ -136,7 +119,6 @@ func highlightInline(line string) string {
 			}
 		}
 
-		// Regular character
 		result.WriteString(edTextStyle.Render(string(line[i])))
 		i++
 	}

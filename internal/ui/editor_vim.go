@@ -50,7 +50,6 @@ func newVimState() vimState {
 func (v *vimState) handleKey(msg tea.KeyMsg, ta *textarea.Model) vimCmd {
 	key := msg.String()
 
-	// Always-on shortcuts
 	switch key {
 	case "ctrl+s":
 		return vimCmdSave
@@ -70,13 +69,11 @@ func (v *vimState) handleKey(msg tea.KeyMsg, ta *textarea.Model) vimCmd {
 }
 
 func (v *vimState) handleNormal(key string, ta *textarea.Model) vimCmd {
-	// Handle pending multi-key commands
 	if v.pending != "" {
 		return v.handlePending(key, ta)
 	}
 
 	switch key {
-	// Mode transitions
 	case "i":
 		v.mode = vimInsert
 		return vimCmdNone
@@ -96,14 +93,12 @@ func (v *vimState) handleNormal(key string, ta *textarea.Model) vimCmd {
 	case "o":
 		v.mode = vimInsert
 		ta.CursorEnd()
-		// We'll insert newline via passthrough
 		return vimCmdNone
 	case "O":
 		v.mode = vimInsert
 		ta.CursorStart()
 		return vimCmdNone
 
-	// Movement
 	case "h", "left":
 		col := ta.LineInfo().ColumnOffset
 		if col > 0 {
@@ -129,7 +124,6 @@ func (v *vimState) handleNormal(key string, ta *textarea.Model) vimCmd {
 	case "G":
 		gotoLastLine(ta)
 
-	// Editing
 	case "x":
 		deleteCharAtCursor(ta)
 	case "d":
@@ -142,12 +136,10 @@ func (v *vimState) handleNormal(key string, ta *textarea.Model) vimCmd {
 			ta.InsertString("\n" + v.register)
 		}
 
-	// Command mode
 	case ":":
 		v.mode = vimCommand
 		v.cmdBuffer = ""
 
-	// Arrow keys pass through
 	}
 	return vimCmdNone
 }
@@ -215,8 +207,6 @@ func (v *vimState) executeCommand() vimCmd {
 	return vimCmdNone
 }
 
-// --- Word movement ---
-
 func (v *vimState) wordForward(ta *textarea.Model) {
 	lines := strings.Split(ta.Value(), "\n")
 	row := ta.Line()
@@ -226,12 +216,10 @@ func (v *vimState) wordForward(ta *textarea.Model) {
 	}
 	line := lines[row]
 
-	// Skip current word
 	i := col
 	for i < len(line) && !isWordSep(line[i]) {
 		i++
 	}
-	// Skip whitespace
 	for i < len(line) && isWordSep(line[i]) {
 		i++
 	}
@@ -264,18 +252,14 @@ func (v *vimState) wordBackward(ta *textarea.Model) {
 	}
 
 	i := col - 1
-	// Skip whitespace backwards
 	for i > 0 && isWordSep(line[i]) {
 		i--
 	}
-	// Skip word backwards
 	for i > 0 && !isWordSep(line[i-1]) {
 		i--
 	}
 	ta.SetCursor(i)
 }
-
-// --- Text manipulation ---
 
 func deleteCharAtCursor(ta *textarea.Model) {
 	lines := strings.Split(ta.Value(), "\n")
