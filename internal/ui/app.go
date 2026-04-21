@@ -20,28 +20,28 @@ import (
 
 const maxRecent = 5
 
-// --- View enum ---
-
 type view int
 
 const (
 	viewDashboard view = iota
 	viewFinder
+	viewCreate
 )
-
-// --- Finder sub-modes ---
 
 type finderMode int
 
 const (
 	finderBrowse finderMode = iota
 	finderSearch
-	finderCreate
-	finderCreateTags
 	finderDelete
 )
 
-// --- Dashboard actions ---
+type createStep int
+
+const (
+	createStepTitle createStep = iota
+	createStepTags
+)
 
 type dashAction int
 
@@ -52,16 +52,14 @@ const (
 )
 
 var dashActions = []struct {
-	key  string
-	label string
+	key    string
+	label  string
 	action dashAction
 }{
 	{"f", "Find Note", dashActionFind},
 	{"n", "New Note", dashActionNew},
 	{"q", "Quit", dashActionQuit},
 }
-
-// --- App Model ---
 
 type AppModel struct {
 	cfg    *config.Config
@@ -70,20 +68,16 @@ type AppModel struct {
 	recent []*note.Note
 	width  int
 	height int
-
-	// Dashboard state
 	view       view
-	dashCursor int // cursor over actions + recent files
-	// actions are indices 0..len(dashActions)-1
-	// recent files are indices len(dashActions)..len(dashActions)+len(recent)-1
-
-	// Finder state
+	dashCursor int
 	finderMode   finderMode
 	filtered     []*note.Note
 	finderCursor int
 	finderScroll int
 	input        textinput.Model
-	newTitle     string
+	createStep createStep
+	newTitle   string
+	createInput textinput.Model
 
 	err error
 }
@@ -96,13 +90,21 @@ func NewAppModel(cfg *config.Config) AppModel {
 	ti.TextStyle = lipgloss.NewStyle().Foreground(sand)
 	ti.Cursor.Style = lipgloss.NewStyle().Foreground(gold)
 
+	ci := textinput.New()
+	ci.CharLimit = 256
+	ci.Width = 50
+	ci.PromptStyle = createLabelStyle
+	ci.TextStyle = lipgloss.NewStyle().Foreground(sand)
+	ci.Cursor.Style = lipgloss.NewStyle().Foreground(gold)
+
 	ascii := strings.TrimRight(asset.ASCIIArt, "\n")
 
 	m := AppModel{
-		cfg:   cfg,
-		ascii: ascii,
-		input: ti,
-		view:  viewDashboard,
+		cfg:         cfg,
+		ascii:       ascii,
+		input:       ti,
+		createInput: ci,
+		view:        viewDashboard,
 	}
 	m.loadNotes()
 	return m
@@ -117,7 +119,6 @@ func (m *AppModel) loadNotes() {
 	m.notes = notes
 	m.filtered = notes
 
-	// Sort by modified time descending for recents
 	sorted := make([]*note.Note, len(notes))
 	copy(sorted, notes)
 	sort.Slice(sorted, func(i, j int) bool {
@@ -151,15 +152,17 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		return m, nil
 
 	case tea.KeyMsg:
-		if m.view == viewDashboard {
+		switch m.view {
+		case viewDashboard:
 			return m.updateDashboard(msg)
+		case viewFinder:
+			return m.updateFinder(msg)
+		case viewCreate:
+			return m.updateCreate(msg)
 		}
-		return m.updateFinder(msg)
 	}
 	return m, nil
 }
-
-// --- Dashboard Update ---
 
 func (m AppModel) updateDashboard(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	totalItems := len(dashActions) + len(m.recent)
@@ -176,11 +179,10 @@ func (m AppModel) updateDashboard(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.dashCursor--
 		}
 	case "f":
-		m.openFinder(finderSearch)
+		m.openFinder()
 		return m, textinput.Blink
 	case "n":
-		m.openFinder(finderCreate)
-		m.input.Placeholder = "Note title"
+		m.openCreate()
 		return m, textinput.Blink
 	case "q":
 		return m, tea.Quit
@@ -194,18 +196,16 @@ func (m AppModel) handleDashEnter() (tea.Model, tea.Cmd) {
 	if m.dashCursor < len(dashActions) {
 		switch dashActions[m.dashCursor].action {
 		case dashActionFind:
-			m.openFinder(finderSearch)
+			m.openFinder()
 			return m, textinput.Blink
 		case dashActionNew:
-			m.openFinder(finderCreate)
-			m.input.Placeholder = "Note title"
+			m.openCreate()
 			return m, textinput.Blink
 		case dashActionQuit:
 			return m, tea.Quit
 		}
 	}
 
-	// Recent file selected
 	recentIdx := m.dashCursor - len(dashActions)
 	if recentIdx >= 0 && recentIdx < len(m.recent) {
 		n := m.recent[recentIdx]
@@ -217,30 +217,31 @@ func (m AppModel) handleDashEnter() (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *AppModel) openFinder(mode finderMode) {
+func (m *AppModel) openFinder() {
 	m.view = viewFinder
-	m.finderMode = mode
+	m.finderMode = finderSearch
 	m.finderCursor = 0
 	m.finderScroll = 0
 	m.filtered = m.notes
 	m.input.SetValue("")
-	if mode == finderSearch {
-		m.input.Placeholder = "Search notes..."
-	}
+	m.input.Placeholder = "Search notes..."
 	m.input.Focus()
 }
 
-// --- Finder Update ---
+func (m *AppModel) openCreate() {
+	m.view = viewCreate
+	m.createStep = createStepTitle
+	m.newTitle = ""
+	m.createInput.SetValue("")
+	m.createInput.Placeholder = "Enter a title for your note"
+	m.createInput.Focus()
+}
 
 func (m AppModel) updateFinder(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch m.finderMode {
-	case finderDelete:
+	if m.finderMode == finderDelete {
 		return m.handleFinderDelete(msg)
-	case finderCreate, finderCreateTags:
-		return m.handleFinderCreate(msg)
-	default:
-		return m.handleFinderNormal(msg)
 	}
+	return m.handleFinderNormal(msg)
 }
 
 func (m AppModel) handleFinderNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -275,7 +276,6 @@ func (m AppModel) handleFinderNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	default:
-		// Pass to text input for searching
 		var cmd tea.Cmd
 		m.input, cmd = m.input.Update(msg)
 
@@ -290,58 +290,6 @@ func (m AppModel) handleFinderNormal(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, cmd
 	}
 	return m, nil
-}
-
-func (m AppModel) handleFinderCreate(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
-	switch msg.String() {
-	case "esc":
-		if m.finderMode == finderCreateTags {
-			// Go back to title
-			m.finderMode = finderCreate
-			m.input.Placeholder = "Note title"
-			m.input.SetValue(m.newTitle)
-			return m, nil
-		}
-		m.view = viewDashboard
-		m.input.Blur()
-		return m, nil
-	case "ctrl+c":
-		return m, tea.Quit
-	case "enter":
-		if m.finderMode == finderCreate {
-			m.newTitle = m.input.Value()
-			if m.newTitle == "" {
-				m.view = viewDashboard
-				m.input.Blur()
-				return m, nil
-			}
-			m.finderMode = finderCreateTags
-			m.input.Placeholder = "Tags (comma separated, optional)"
-			m.input.SetValue("")
-			return m, nil
-		}
-		// finderCreateTags
-		tags := parseTags(m.input.Value())
-		dir := filepath.Join(m.cfg.VaultPath, "notes")
-		n, err := note.Create(dir, m.newTitle, tags)
-		if err != nil {
-			m.err = err
-			m.view = viewDashboard
-			m.input.Blur()
-			return m, nil
-		}
-		m.view = viewDashboard
-		m.input.Blur()
-		m.loadNotes()
-		c := makeEditorCmd(n.Path)
-		return m, tea.ExecProcess(c, func(err error) tea.Msg {
-			return editorFinishedMsg{err}
-		})
-	}
-
-	var cmd tea.Cmd
-	m.input, cmd = m.input.Update(msg)
-	return m, cmd
 }
 
 func (m AppModel) handleFinderDelete(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
@@ -361,7 +309,60 @@ func (m AppModel) handleFinderDelete(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-// --- Views ---
+// --- Create Update ---
+
+func (m AppModel) updateCreate(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		if m.createStep == createStepTags {
+			m.createStep = createStepTitle
+			m.createInput.SetValue(m.newTitle)
+			m.createInput.Placeholder = "Enter a title for your note"
+			return m, nil
+		}
+		m.view = viewDashboard
+		m.createInput.Blur()
+		return m, nil
+	case "ctrl+c":
+		return m, tea.Quit
+	case "enter":
+		if m.createStep == createStepTitle {
+			m.newTitle = m.createInput.Value()
+			if m.newTitle == "" {
+				m.view = viewDashboard
+				m.createInput.Blur()
+				return m, nil
+			}
+			m.createStep = createStepTags
+			m.createInput.SetValue("")
+			m.createInput.Placeholder = "e.g. project, idea, draft (optional)"
+			return m, nil
+		}
+		// createStepTags — finalize
+		tags := parseTags(m.createInput.Value())
+		dir := filepath.Join(m.cfg.VaultPath, "notes")
+		n, err := note.Create(dir, m.newTitle, tags)
+		if err != nil {
+			m.err = err
+			m.view = viewDashboard
+			m.createInput.Blur()
+			return m, nil
+		}
+		m.view = viewDashboard
+		m.createInput.Blur()
+		m.loadNotes()
+		c := makeEditorCmd(n.Path)
+		return m, tea.ExecProcess(c, func(err error) tea.Msg {
+			return editorFinishedMsg{err}
+		})
+	}
+
+	var cmd tea.Cmd
+	m.createInput, cmd = m.createInput.Update(msg)
+	return m, cmd
+}
+
+// ===== Views =====
 
 func (m AppModel) View() string {
 	if m.width == 0 {
@@ -371,6 +372,8 @@ func (m AppModel) View() string {
 	switch m.view {
 	case viewFinder:
 		return m.viewFinder()
+	case viewCreate:
+		return m.viewCreate()
 	default:
 		return m.viewDashboard()
 	}
@@ -385,49 +388,64 @@ func (m AppModel) viewDashboard() string {
 	art := asciiStyle.Render(m.ascii)
 	sections = append(sections, art)
 	sections = append(sections, "")
+	sections = append(sections, "")
 
-	// Actions
 	for i, a := range dashActions {
-		key := dashActionKeyStyle.Render(a.key)
-		label := dashActionStyle.Render(a.label)
-		cursor := "  "
-		if i == m.dashCursor {
-			cursor = dashActionSelectedStyle.Render("> ")
-			label = dashActionSelectedStyle.Render(a.label)
-		}
-		sections = append(sections, fmt.Sprintf("  %s %s  %s", cursor, key, label))
-	}
+    isSelected := i == m.dashCursor
+
+    indicator := " "
+    labelStyle := dashActionStyle
+
+    if isSelected {
+        indicator = ">"
+        labelStyle = dashActionSelectedStyle
+    }
+
+    sections = append(sections,
+        fmt.Sprintf("      %s %s  %s",
+            dashActionSelectedStyle.Render(indicator),
+            dashActionKeyStyle.Render(a.key),
+            labelStyle.Render(a.label),
+        ),
+    )
+    sections = append(sections, "")
+}
 
 	// Recent files
 	if len(m.recent) > 0 {
 		sections = append(sections, "")
-		sections = append(sections, "  "+dashRecentTitleStyle.Render("  Recent Notes"))
+		sections = append(sections, "      "+dashRecentTitleStyle.Render("Recent Notes"))
 		sections = append(sections, "")
 
 		for i, n := range m.recent {
 			globalIdx := len(dashActions) + i
-			cursor := "  "
-			title := dashRecentItemStyle.Render(truncate(n.Title, m.width-20))
+			title := truncate(n.Title, m.width-25)
 			date := dashRecentDateStyle.Render(relativeTime(n.Modified))
 
 			if globalIdx == m.dashCursor {
-				cursor = dashRecentSelectedStyle.Render("> ")
-				title = dashRecentSelectedStyle.Render(truncate(n.Title, m.width-20))
+				sections = append(sections,
+					fmt.Sprintf("      %s %s  %s",
+						dashRecentSelectedStyle.Render(">"),
+						dashRecentSelectedStyle.Render(title),
+						date))
+			} else {
+				sections = append(sections,
+					fmt.Sprintf("        %s  %s",
+						dashRecentItemStyle.Render(title),
+						date))
 			}
-
-			sections = append(sections, fmt.Sprintf("  %s %s  %s", cursor, title, date))
 		}
 	}
 
 	// Footer
 	sections = append(sections, "")
+	sections = append(sections, "")
 	sections = append(sections, dashFooterStyle.Render(
-		fmt.Sprintf("    Scripture  —  %d notes in vault", len(m.notes)),
+		fmt.Sprintf("      Scripture  —  %d notes in vault", len(m.notes)),
 	))
 
 	content := strings.Join(sections, "\n")
 
-	// Center everything
 	return lipgloss.Place(
 		m.width, m.height,
 		lipgloss.Center, lipgloss.Center,
@@ -435,10 +453,9 @@ func (m AppModel) viewDashboard() string {
 	)
 }
 
-// --- Finder View (Telescope-style) ---
+// --- Finder View (Telescope-style, search at bottom) ---
 
 func (m AppModel) viewFinder() string {
-	// Modal dimensions
 	modalW := min(m.width-4, 100)
 	modalH := min(m.height-4, 30)
 	if modalW < 40 {
@@ -450,38 +467,60 @@ func (m AppModel) viewFinder() string {
 
 	listW := modalW * 2 / 5
 	previewW := modalW - listW
+	innerW := modalW - 2 // inside border
+
+	// Content area height: modal - title - search bar - help - dividers
+	contentH := modalH - 5
+	if contentH < 3 {
+		contentH = 3
+	}
 
 	// Title bar
-	title := m.finderTitle()
-	titleBar := finderTitleStyle.Render(title)
+	titleBar := finderTitleStyle.Render(" Find Notes")
 
-	// Input bar
-	inputBar := m.finderInputBar(modalW)
-
-	// Content area height
-	contentH := modalH - 4 // title + input + border overhead
+	// Horizontal divider under title
+	topDiv := finderPreviewDivStyle.Render(strings.Repeat("─", innerW))
 
 	// Left: file list
 	left := m.finderList(listW, contentH)
 
+	// Vertical separator
+	var sepLines []string
+	for i := 0; i < contentH; i++ {
+		sepLines = append(sepLines, finderPreviewDivStyle.Render("│"))
+	}
+	sep := strings.Join(sepLines, "\n")
+
 	// Right: preview
 	right := m.finderPreview(previewW, contentH)
 
-	// Separator
-	sep := finderPreviewDivStyle.Render(
-		strings.Repeat("│\n", contentH),
-	)
-
 	content := lipgloss.JoinHorizontal(lipgloss.Top, left, sep, right)
 
-	// Bottom help
+	// Divider above search
+	bottomDiv := finderPreviewDivStyle.Render(strings.Repeat("─", innerW))
+
+	// Search bar at bottom
+	var searchBar string
+	if m.finderMode == finderDelete {
+		n := m.filtered[m.finderCursor]
+		searchBar = deleteWarnStyle.Render(
+			fmt.Sprintf(" Delete \"%s\"? ", truncate(n.Title, innerW-25)),
+		) + helpDescStyle.Render("y to confirm, any key to cancel")
+	} else {
+		prompt := inputLabelStyle.Render(" > ")
+		searchBar = prompt + m.input.View()
+	}
+
+	// Help
 	help := m.finderHelp()
 
 	// Compose modal
 	modal := lipgloss.JoinVertical(lipgloss.Left,
 		titleBar,
-		inputBar,
+		topDiv,
 		content,
+		bottomDiv,
+		searchBar,
 		help,
 	)
 
@@ -496,31 +535,6 @@ func (m AppModel) viewFinder() string {
 	)
 }
 
-func (m AppModel) finderTitle() string {
-	switch m.finderMode {
-	case finderCreate:
-		return " New Note"
-	case finderCreateTags:
-		return " New Note — Tags"
-	case finderDelete:
-		return " Delete Note"
-	default:
-		return " Find Notes"
-	}
-}
-
-func (m AppModel) finderInputBar(w int) string {
-	if m.finderMode == finderDelete {
-		n := m.filtered[m.finderCursor]
-		return deleteWarnStyle.Render(
-			fmt.Sprintf(" Delete \"%s\"? (y/n)", truncate(n.Title, w-25)),
-		)
-	}
-
-	prompt := inputLabelStyle.Render(" > ")
-	return prompt + m.input.View()
-}
-
 func (m AppModel) finderList(w, h int) string {
 	var lines []string
 
@@ -528,12 +542,11 @@ func (m AppModel) finderList(w, h int) string {
 		empty := finderPreviewEmptyStyle.Render("  No matches")
 		lines = append(lines, empty)
 	} else {
-		visibleCount := h
 		for i, n := range m.filtered {
 			if i < m.finderScroll {
 				continue
 			}
-			if len(lines) >= visibleCount {
+			if len(lines) >= h {
 				break
 			}
 
@@ -559,7 +572,7 @@ func (m AppModel) finderList(w, h int) string {
 		lines = append(lines, "")
 	}
 
-	// Count indicator
+	// Count indicator on last line
 	countStr := finderCountStyle.Render(
 		fmt.Sprintf("  %d/%d", len(m.filtered), len(m.notes)),
 	)
@@ -586,11 +599,9 @@ func (m AppModel) finderPreview(w, h int) string {
 	n := m.filtered[m.finderCursor]
 	var b strings.Builder
 
-	// Title
 	b.WriteString(finderPreviewTitleStyle.Render(n.Title))
 	b.WriteString("\n")
 
-	// Tags
 	if len(n.Tags) > 0 {
 		tags := make([]string, len(n.Tags))
 		for i, t := range n.Tags {
@@ -600,14 +611,12 @@ func (m AppModel) finderPreview(w, h int) string {
 		b.WriteString("\n")
 	}
 
-	// Dates
 	b.WriteString(finderPreviewMetaStyle.Render(
 		fmt.Sprintf("Created %s  Modified %s",
 			n.Created.Format("Jan 02, 2006"),
 			n.Modified.Format("Jan 02, 2006"))))
 	b.WriteString("\n")
 
-	// Divider
 	divW := w - 4
 	if divW < 5 {
 		divW = 5
@@ -615,11 +624,9 @@ func (m AppModel) finderPreview(w, h int) string {
 	b.WriteString(finderPreviewDivStyle.Render(strings.Repeat("─", divW)))
 	b.WriteString("\n")
 
-	// Body
 	if n.Body == "" {
 		b.WriteString(finderPreviewEmptyStyle.Render("Empty note"))
 	} else {
-		// Truncate body to fit
 		bodyLines := strings.Split(n.Body, "\n")
 		maxLines := h - 6
 		if maxLines < 1 {
@@ -643,9 +650,6 @@ func (m AppModel) finderHelp() string {
 	if m.finderMode == finderDelete {
 		return ""
 	}
-	if m.finderMode == finderCreate || m.finderMode == finderCreateTags {
-		return helpDescStyle.Render(" Enter confirm  Esc back")
-	}
 
 	parts := []string{
 		helpKeyStyle.Render("Enter") + helpDescStyle.Render(" open"),
@@ -655,7 +659,89 @@ func (m AppModel) finderHelp() string {
 	return " " + strings.Join(parts, "  ")
 }
 
-// --- Helpers ---
+// --- Create Note View (distinct from finder) ---
+
+func (m AppModel) viewCreate() string {
+	modalW := min(m.width-4, 60)
+	if modalW < 30 {
+		modalW = 30
+	}
+	innerW := modalW - 2
+
+	// Title
+	title := createTitleStyle.Render(" New Note")
+
+	// Divider
+	div := finderPreviewDivStyle.Render(strings.Repeat("─", innerW))
+
+	// Step indicators
+	step1Label := "Title"
+	step2Label := "Tags"
+
+	var step1, step2 string
+	switch m.createStep {
+	case createStepTitle:
+		step1 = createStepActiveStyle.Render("● " + step1Label)
+		step2 = createStepPendingStyle.Render("○ " + step2Label)
+	case createStepTags:
+		step1 = createStepDoneStyle.Render("✓ " + step1Label)
+		step2 = createStepActiveStyle.Render("● " + step2Label)
+	}
+
+	steps := fmt.Sprintf(" %s    %s", step1, step2)
+
+	// Show confirmed title when on tags step
+	var titlePreview string
+	if m.createStep == createStepTags {
+		titlePreview = fmt.Sprintf(" %s %s",
+			createLabelStyle.Render("Title:"),
+			createValueStyle.Render(m.newTitle),
+		)
+	}
+
+	// Input field
+	var inputLabel string
+	if m.createStep == createStepTitle {
+		inputLabel = createLabelStyle.Render(" Title")
+	} else {
+		inputLabel = createLabelStyle.Render(" Tags")
+	}
+	inputLine := fmt.Sprintf(" %s\n %s", inputLabel, m.createInput.View())
+
+	// Help
+	help := " " + helpKeyStyle.Render("Enter") + helpDescStyle.Render(" next  ") +
+		helpKeyStyle.Render("Esc") + helpDescStyle.Render(" back")
+
+	// Compose
+	var parts []string
+	parts = append(parts, title)
+	parts = append(parts, div)
+	parts = append(parts, "")
+	parts = append(parts, steps)
+	parts = append(parts, "")
+	if titlePreview != "" {
+		parts = append(parts, titlePreview)
+		parts = append(parts, "")
+	}
+	parts = append(parts, inputLine)
+	parts = append(parts, "")
+	parts = append(parts, div)
+	parts = append(parts, help)
+
+	modal := lipgloss.JoinVertical(lipgloss.Left, parts...)
+
+	framed := createBorderStyle.
+		Width(modalW).
+		Render(modal)
+
+	return lipgloss.Place(
+		m.width, m.height,
+		lipgloss.Center, lipgloss.Center,
+		framed,
+	)
+}
+
+// ===== Helpers =====
 
 func (m *AppModel) clampFinderScroll() {
 	visibleH := m.finderVisibleCount()
@@ -672,7 +758,7 @@ func (m *AppModel) clampFinderScroll() {
 
 func (m AppModel) finderVisibleCount() int {
 	modalH := min(m.height-4, 30)
-	h := modalH - 6
+	h := modalH - 7
 	if h < 3 {
 		h = 3
 	}

@@ -122,4 +122,30 @@ var (
 
 	helpDescStyle = lipgloss.NewStyle().
 			Foreground(stone)
+
+	// New Note modal
+	createBorderStyle = lipgloss.NewStyle().
+				BorderStyle(borderStyle).
+				BorderForeground(gold)
+
+	createTitleStyle = lipgloss.NewStyle().
+				Foreground(gold).
+				Bold(true)
+
+	createLabelStyle = lipgloss.NewStyle().
+				Foreground(stone).
+				Bold(true)
+
+	createStepActiveStyle = lipgloss.NewStyle().
+				Foreground(gold).
+				Bold(true)
+
+	createStepDoneStyle = lipgloss.NewStyle().
+				Foreground(sage)
+
+	createStepPendingStyle = lipgloss.NewStyle().
+				Foreground(darkStone)
+
+	createValueStyle = lipgloss.NewStyle().
+			Foreground(sand)
 )
