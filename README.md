@@ -2,8 +2,7 @@
 
 A lightweight terminal note-taking app inspired by Khmer wall carvings. Manage your markdown notes with a Neovim-style dashboard and Telescope-style fuzzy finder.
 
-<!-- TODO: Add screenshot/GIF here -->
-<!-- ![Screenshot](screenshot.png) -->
+<img width="582" height="261" alt="image" src="https://github.com/user-attachments/assets/1bfb490e-5495-4fbd-b52e-c954e1f142cc" />
 
 ## Features
 
@@ -11,7 +10,6 @@ A lightweight terminal note-taking app inspired by Khmer wall carvings. Manage y
 - **Telescope-style finder** — fuzzy search with live preview pane
 - **Markdown notes** — YAML frontmatter with title, tags, and dates
 - **Tag organization** — auto-grouped by frontmatter tags
-- **$EDITOR integration** — opens notes in your preferred editor
 - **Soft delete** — notes move to trash before permanent removal
 - **Single binary** — no runtime dependencies, works over SSH
 
