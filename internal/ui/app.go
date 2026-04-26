@@ -388,31 +388,55 @@ func (m AppModel) View() string {
 func (m AppModel) viewDashboard() string {
 	var sections []string
 
-	art := lipgloss.PlaceHorizontal(m.width, lipgloss.Center, asciiStyle.Render(m.ascii))
+	art := lipgloss.PlaceHorizontal(
+		m.width,
+		lipgloss.Center,
+		asciiStyle.Render(m.ascii),
+	)
 	sections = append(sections, art, "", "")
+
+	colIndicator := 3
+	colKey := 10
+	colLabel := 25
+
+	titleCol := 40
+	dateCol := 20
+
+	actionsWidth := colIndicator + colKey + colLabel
+	recentWidth := 3 + titleCol + dateCol
+
+	var actionRows []string
 
 	for i, a := range dashActions {
 		isSelected := i == m.dashCursor
 
 		indicator := " "
-		labelStyle := dashActionStyle
+		keyStyle := dashActionKeyStyle.Align(lipgloss.Left)
+		labelStyle := dashActionStyle.Align(lipgloss.Right)
 
 		if isSelected {
 			indicator = ">"
-			labelStyle = dashActionSelectedStyle
+			labelStyle = dashActionSelectedStyle.Align(lipgloss.Right)
 		}
 
-		row := fmt.Sprintf("%s  %s  %s",
-			dashActionSelectedStyle.Render(indicator),
-			dashActionKeyStyle.Render(a.key),
-			labelStyle.Render(a.label),
+		row := lipgloss.JoinHorizontal(
+			lipgloss.Left,
+			dashActionSelectedStyle.Width(colIndicator).Render(indicator),
+			keyStyle.Width(colKey).Render(a.key),
+			labelStyle.Width(colLabel).Render(a.label),
 		)
 
-		sections = append(sections,
-			lipgloss.PlaceHorizontal(m.width, lipgloss.Center, row),
-			"",
-		)
+		actionRows = append(actionRows, row)
 	}
+
+	actionsBlock := lipgloss.NewStyle().
+		Width(actionsWidth).
+		Align(lipgloss.Left).
+		Render(strings.Join(actionRows, "\n"))
+
+	sections = append(sections,
+		lipgloss.PlaceHorizontal(m.width, lipgloss.Center, actionsBlock),
+	)
 
 	if len(m.recent) > 0 {
 		sections = append(sections, "")
@@ -423,30 +447,41 @@ func (m AppModel) viewDashboard() string {
 			"",
 		)
 
+		var recentRows []string
+
 		for i, n := range m.recent {
 			globalIdx := len(dashActions) + i
+			isSelected := globalIdx == m.dashCursor
 
-			noteTitle := truncate(n.Title, 40) // fixed width for alignment
-			date := dashRecentDateStyle.Render(relativeTime(n.Modified))
+			noteTitle := truncate(n.Title, titleCol)
+			date := relativeTime(n.Modified)
 
-			var row string
-			if globalIdx == m.dashCursor {
-				row = fmt.Sprintf("%s  %-40s  %s",
-					dashRecentSelectedStyle.Render(">"),
-					dashRecentSelectedStyle.Render(noteTitle),
-					date,
-				)
-			} else {
-				row = fmt.Sprintf("   %-40s  %s",
-					dashRecentItemStyle.Render(noteTitle),
-					date,
-				)
+			titleStyle := dashRecentItemStyle.Align(lipgloss.Left)
+			indicator := " "
+
+			if isSelected {
+				titleStyle = dashRecentSelectedStyle.Align(lipgloss.Left)
+				indicator = ">"
 			}
 
-			sections = append(sections,
-				lipgloss.PlaceHorizontal(m.width, lipgloss.Center, row),
+			row := lipgloss.JoinHorizontal(
+				lipgloss.Left,
+				dashRecentSelectedStyle.Width(3).Render(indicator),
+				titleStyle.Width(titleCol).Render(noteTitle),
+				dashRecentDateStyle.Width(dateCol).Align(lipgloss.Right).Render(date),
 			)
+
+			recentRows = append(recentRows, row)
 		}
+
+		recentBlock := lipgloss.NewStyle().
+			Width(recentWidth).
+			Align(lipgloss.Left).
+			Render(strings.Join(recentRows, "\n"))
+
+		sections = append(sections,
+			lipgloss.PlaceHorizontal(m.width, lipgloss.Center, recentBlock),
+		)
 	}
 
 	sections = append(sections, "", "")
@@ -455,15 +490,22 @@ func (m AppModel) viewDashboard() string {
 		fmt.Sprintf("etch — %d notes in vault", len(m.notes)),
 	)
 
+	footerBlock := lipgloss.NewStyle().
+		Width(recentWidth).
+		Align(lipgloss.Center).
+		Render(footer)
+
 	sections = append(sections,
-		lipgloss.PlaceHorizontal(m.width, lipgloss.Center, footer),
+		lipgloss.PlaceHorizontal(m.width, lipgloss.Center, footerBlock),
 	)
 
 	content := strings.Join(sections, "\n")
 
 	return lipgloss.Place(
-		m.width, m.height,
-		lipgloss.Center, lipgloss.Center,
+		m.width,
+		m.height,
+		lipgloss.Center,
+		lipgloss.Center,
 		content,
 	)
 }
