@@ -175,6 +175,51 @@ This design enables maintainability, extensibility, and responsiveness even with
 
 ---
 
+## Themes
+
+Etch includes a token-based theme system. Set your theme in `~/.etch/config.yaml`:
+
+```yaml
+vault_path: /path/to/notes
+theme: retro-green
+```
+
+### Built-in Themes
+
+| Name                | Style                          |
+| ------------------- | ------------------------------ |
+| `default`           | Warm parchment (original)      |
+| `retro-green`       | Matrix / CRT terminal          |
+| `hud-blue`          | Futuristic glass HUD           |
+| `industrial-amber`  | Hardware analyzer / amber CRT  |
+
+### Custom Themes
+
+Create a JSON file and reference it by path:
+
+```yaml
+theme: /path/to/my-theme.json
+```
+
+Theme files use a token-based structure. All component colors reference palette tokens (e.g. `"accent.primary"`) rather than raw hex values. Only the `palette` section contains actual color codes.
+
+Partial themes are supported: unspecified fields fall back to the default theme.
+
+See `internal/theme/themes/` for complete examples.
+
+### Theme Structure
+
+```
+meta           → name, version, mode
+palette        → background, text, accent, state colors
+border         → style (rounded/normal/thick/double), foreground
+components     → panel, text, input, status, graph
+effects        → glow, scanline, noise (all toggleable)
+behavior       → density (compact/normal)
+```
+
+---
+
 ## Roadmap
 
 * Improved fuzzy ranking and scoring

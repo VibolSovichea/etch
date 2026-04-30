@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/vibolsovichea/etch/internal/config"
+	"github.com/vibolsovichea/etch/internal/theme"
 	"github.com/vibolsovichea/etch/internal/ui"
 	"github.com/vibolsovichea/etch/internal/version"
 
@@ -43,6 +44,13 @@ func main() {
 			os.Exit(1)
 		}
 	}
+
+	t, err := theme.Load(cfg.Theme)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error loading theme: %v\n", err)
+		os.Exit(1)
+	}
+	ui.InitTheme(t)
 
 	p := tea.NewProgram(ui.NewAppModel(cfg), tea.WithAltScreen())
 	if _, err := p.Run(); err != nil {

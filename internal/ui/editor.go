@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"github.com/vibolsovichea/etch/internal/note"
+	"github.com/vibolsovichea/etch/internal/theme"
 
 	"github.com/charmbracelet/bubbles/textarea"
 	tea "github.com/charmbracelet/bubbletea"
@@ -35,12 +36,12 @@ func NewEditorModel(n *note.Note, width, height int) EditorModel {
 	ta.CharLimit = 0
 	ta.Blur()
 
-	ta.FocusedStyle.Base = lipgloss.NewStyle().Foreground(ivory)
-	ta.FocusedStyle.CursorLine = lipgloss.NewStyle().Foreground(ivory)
-	ta.FocusedStyle.Placeholder = lipgloss.NewStyle().Foreground(darkStone)
-	ta.BlurredStyle.Base = lipgloss.NewStyle().Foreground(ivory)
-	ta.BlurredStyle.CursorLine = lipgloss.NewStyle().Foreground(ivory)
-	ta.BlurredStyle.Placeholder = lipgloss.NewStyle().Foreground(darkStone)
+	ta.FocusedStyle.Base = editorBodyStyle
+	ta.FocusedStyle.CursorLine = editorBodyStyle
+	ta.FocusedStyle.Placeholder = inputPlaceholderStyle
+	ta.BlurredStyle.Base = editorBodyStyle
+	ta.BlurredStyle.CursorLine = editorBodyStyle
+	ta.BlurredStyle.Placeholder = inputPlaceholderStyle
 	ta.Prompt = ""
 
 	return EditorModel{
@@ -177,7 +178,8 @@ func (m EditorModel) View() string {
 	statusBar := m.renderStatusBar(cursorRow, cursorCol)
 	cmdLine := m.renderCmdLine()
 
-	return lipgloss.JoinVertical(lipgloss.Left, editor, statusBar, cmdLine)
+	output := lipgloss.JoinVertical(lipgloss.Left, editor, statusBar, cmdLine)
+	return theme.ApplyEffects(CurrentTheme(), output)
 }
 
 func renderCursorLine(line string, col int, inCodeBlock bool) string {

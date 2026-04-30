@@ -1,0 +1,79 @@
+{
+  "meta": {
+    "name": "hud-blue",
+    "version": "1.0",
+    "mode": "dark"
+  },
+  "palette": {
+    "background": {
+      "primary": "#0A0E1A",
+      "panel": "#111827",
+      "elevated": "#1E293B"
+    },
+    "text": {
+      "primary": "#E2E8F0",
+      "secondary": "#94A3B8",
+      "muted": "#64748B",
+      "dim": "#334155",
+      "inverse": "#0A0E1A"
+    },
+    "accent": {
+      "primary": "#22D3EE",
+      "secondary": "#06B6D4",
+      "tertiary": "#0EA5E9"
+    },
+    "state": {
+      "success": "#34D399",
+      "error": "#F87171",
+      "warning": "#FBBF24",
+      "info": "#22D3EE"
+    }
+  },
+  "border": {
+    "style": "rounded",
+    "foreground": "text.dim"
+  },
+  "components": {
+    "panel": {
+      "border_foreground": "text.dim",
+      "title_foreground": "accent.primary"
+    },
+    "text": {
+      "heading": "accent.primary",
+      "body": "text.primary",
+      "code": "accent.secondary",
+      "link": "accent.tertiary",
+      "blockquote": "text.muted",
+      "list_marker": "accent.secondary"
+    },
+    "input": {
+      "text": "text.secondary",
+      "placeholder": "text.dim",
+      "cursor": "accent.primary",
+      "label": "accent.secondary"
+    },
+    "status": {
+      "normal_bg": "accent.primary",
+      "normal_fg": "text.inverse",
+      "insert_bg": "state.success",
+      "insert_fg": "text.inverse",
+      "command_bg": "accent.secondary",
+      "command_fg": "text.inverse",
+      "bar_bg": "background.panel",
+      "bar_fg": "text.muted"
+    },
+    "graph": {
+      "bar": "accent.primary",
+      "label": "text.muted",
+      "grid": "text.dim"
+    }
+  },
+  "effects": {
+    "glow": true,
+    "scanline": false,
+    "noise": false
+  },
+  "behavior": {
+    "density": "normal"
+  }
+}

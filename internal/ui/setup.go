@@ -26,9 +26,9 @@ func NewSetupModel() SetupModel {
 	ti.Focus()
 	ti.CharLimit = 256
 	ti.Width = 50
-	ti.TextStyle = lipgloss.NewStyle().Foreground(sand)
-	ti.Cursor.Style = lipgloss.NewStyle().Foreground(gold)
-	ti.PlaceholderStyle = lipgloss.NewStyle().Foreground(darkStone)
+	ti.TextStyle = inputTextStyle
+	ti.Cursor.Style = inputCursorStyle
+	ti.PlaceholderStyle = inputPlaceholderStyle
 
 	return SetupModel{input: ti}
 }

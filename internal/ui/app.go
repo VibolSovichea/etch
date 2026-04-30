@@ -10,6 +10,7 @@ import (
 	"github.com/vibolsovichea/etch/internal/asset"
 	"github.com/vibolsovichea/etch/internal/config"
 	"github.com/vibolsovichea/etch/internal/note"
+	"github.com/vibolsovichea/etch/internal/theme"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
@@ -25,6 +26,7 @@ const (
 	viewFinder
 	viewCreate
 	viewEditor
+	viewTheme
 )
 
 type finderMode int
@@ -47,6 +49,7 @@ type dashAction int
 const (
 	dashActionFind dashAction = iota
 	dashActionNew
+	dashActionTheme
 	dashActionQuit
 )
 
@@ -57,6 +60,7 @@ var dashActions = []struct {
 }{
 	{"f", "Find Note", dashActionFind},
 	{"n", "New Note", dashActionNew},
+	{"t", "Theme", dashActionTheme},
 	{"q", "Quit", dashActionQuit},
 }
 
@@ -80,6 +84,9 @@ type AppModel struct {
 
 	editor EditorModel
 
+	themeNames  []string
+	themeCursor int
+
 	err error
 }
 
@@ -88,15 +95,15 @@ func NewAppModel(cfg *config.Config) AppModel {
 	ti.CharLimit = 256
 	ti.Width = 40
 	ti.PromptStyle = inputLabelStyle
-	ti.TextStyle = lipgloss.NewStyle().Foreground(sand)
-	ti.Cursor.Style = lipgloss.NewStyle().Foreground(gold)
+	ti.TextStyle = inputTextStyle
+	ti.Cursor.Style = inputCursorStyle
 
 	ci := textinput.New()
 	ci.CharLimit = 256
 	ci.Width = 50
 	ci.PromptStyle = createLabelStyle
-	ci.TextStyle = lipgloss.NewStyle().Foreground(sand)
-	ci.Cursor.Style = lipgloss.NewStyle().Foreground(gold)
+	ci.TextStyle = inputTextStyle
+	ci.Cursor.Style = inputCursorStyle
 
 	ascii := strings.TrimRight(asset.ASCIIArt, "\n")
 
@@ -162,6 +169,8 @@ func (m AppModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m.updateFinder(msg)
 		case viewCreate:
 			return m.updateCreate(msg)
+		case viewTheme:
+			return m.updateThemePicker(msg)
 		case viewEditor:
 			var cmd tea.Cmd
 			m.editor, cmd = m.editor.Update(msg)
@@ -197,6 +206,9 @@ func (m AppModel) updateDashboard(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 	case "n":
 		m.openCreate()
 		return m, textinput.Blink
+	case "t":
+		m.openThemePicker()
+		return m, nil
 	case "q":
 		return m, tea.Quit
 	case "enter":
@@ -214,6 +226,9 @@ func (m AppModel) handleDashEnter() (tea.Model, tea.Cmd) {
 		case dashActionNew:
 			m.openCreate()
 			return m, textinput.Blink
+		case dashActionTheme:
+			m.openThemePicker()
+			return m, nil
 		case dashActionQuit:
 			return m, tea.Quit
 		}
@@ -378,6 +393,8 @@ func (m AppModel) View() string {
 		return m.viewFinder()
 	case viewCreate:
 		return m.viewCreate()
+	case viewTheme:
+		return m.viewThemePicker()
 	case viewEditor:
 		return m.editor.View()
 	default:
@@ -752,6 +769,121 @@ func (m AppModel) viewCreate() string {
 		parts = append(parts, "")
 	}
 	parts = append(parts, inputLine)
+	parts = append(parts, "")
+	parts = append(parts, div)
+	parts = append(parts, help)
+
+	modal := lipgloss.JoinVertical(lipgloss.Left, parts...)
+
+	framed := createBorderStyle.
+		Width(modalW).
+		Render(modal)
+
+	return lipgloss.Place(
+		m.width, m.height,
+		lipgloss.Center, lipgloss.Center,
+		framed,
+	)
+}
+
+func (m *AppModel) openThemePicker() {
+	m.view = viewTheme
+	m.themeNames = theme.BuiltinNames()
+	m.themeCursor = 0
+	current := m.cfg.Theme
+	if current == "" {
+		current = "default"
+	}
+	for i, name := range m.themeNames {
+		if name == current {
+			m.themeCursor = i
+			break
+		}
+	}
+}
+
+func (m AppModel) updateThemePicker(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.view = viewDashboard
+		return m, nil
+	case "ctrl+c":
+		return m, tea.Quit
+	case "j", "down":
+		if m.themeCursor < len(m.themeNames)-1 {
+			m.themeCursor++
+		}
+	case "k", "up":
+		if m.themeCursor > 0 {
+			m.themeCursor--
+		}
+	case "enter":
+		name := m.themeNames[m.themeCursor]
+		t, err := theme.Load(name)
+		if err != nil {
+			m.err = err
+			m.view = viewDashboard
+			return m, nil
+		}
+		InitTheme(t)
+		m.cfg.Theme = name
+		m.cfg.Save()
+		m.view = viewDashboard
+		return m, nil
+	}
+	return m, nil
+}
+
+func (m AppModel) viewThemePicker() string {
+	modalW := min(m.width-4, 50)
+	if modalW < 30 {
+		modalW = 30
+	}
+	innerW := modalW - 2
+
+	title := createTitleStyle.Render(" Select Theme")
+	div := finderPreviewDivStyle.Render(strings.Repeat("─", innerW))
+
+	current := m.cfg.Theme
+	if current == "" {
+		current = "default"
+	}
+
+	var rows []string
+	for i, name := range m.themeNames {
+		isSelected := i == m.themeCursor
+		isCurrent := name == current
+
+		indicator := "  "
+		if isSelected {
+			indicator = "> "
+		}
+
+		label := name
+		if isCurrent {
+			label += " (active)"
+		}
+
+		if isSelected {
+			row := finderCursorStyle.Render(indicator) + finderItemSelectedStyle.Render(label)
+		rows = append(rows, " "+row)
+		} else if isCurrent {
+			row := indicator + createStepDoneStyle.Render(label)
+			rows = append(rows, " "+row)
+		} else {
+			row := indicator + finderItemStyle.Render(label)
+			rows = append(rows, " "+row)
+		}
+	}
+
+	help := " " + helpKeyStyle.Render("Enter") + helpDescStyle.Render(" apply  ") +
+		helpKeyStyle.Render("Esc") + helpDescStyle.Render(" back")
+
+	var parts []string
+	parts = append(parts, title)
+	parts = append(parts, div)
+	parts = append(parts, "")
+	parts = append(parts, strings.Join(rows, "\n"))
 	parts = append(parts, "")
 	parts = append(parts, div)
 	parts = append(parts, help)

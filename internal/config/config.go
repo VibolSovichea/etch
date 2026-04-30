@@ -15,6 +15,7 @@ const (
 
 type Config struct {
 	VaultPath string `yaml:"vault_path"`
+	Theme     string `yaml:"theme,omitempty"`
 }
 
 func configPath() (string, error) {
@@ -44,6 +45,18 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	return &cfg, nil
+}
+
+func (c *Config) Save() error {
+	path, err := configPath()
+	if err != nil {
+		return err
+	}
+	data, err := yaml.Marshal(c)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, data, 0644)
 }
 
 func Init(vaultPath string) (*Config, error) {
