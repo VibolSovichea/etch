@@ -52,7 +52,8 @@ var (
 	edGutterActiveStyle lipgloss.Style
 	edGutterSepStyle    lipgloss.Style
 	edTextStyle         lipgloss.Style
-	edCursorBlockStyle  lipgloss.Style
+	edCursorBlockStyle     lipgloss.Style
+	edCursorUnderlineStyle lipgloss.Style
 	edStatusBarStyle    lipgloss.Style
 	edModeNormalStyle   lipgloss.Style
 	edModeInsertStyle   lipgloss.Style
@@ -286,6 +287,9 @@ func buildStyles(t *theme.Theme) {
 
 	edCursorBlockStyle = lipgloss.NewStyle().
 		Reverse(true)
+
+	edCursorUnderlineStyle = lipgloss.NewStyle().
+		Underline(true)
 
 	edStatusBarStyle = lipgloss.NewStyle().
 		Background(compStatusBarBg).

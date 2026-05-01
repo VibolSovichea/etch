@@ -160,8 +160,13 @@ func (m EditorModel) View() string {
 		var styledLine string
 		styledLine, inCodeBlock = highlightLine(line, inCodeBlock)
 
-		if lineIdx == cursorRow && m.vim.mode == vimNormal {
-			styledLine = renderCursorLine(line, cursorCol, inCodeBlock)
+		if lineIdx == cursorRow {
+			switch m.vim.mode {
+			case vimNormal:
+				styledLine = renderCursorLine(line, cursorCol, edCursorBlockStyle)
+			case vimInsert:
+				styledLine = renderCursorLine(line, cursorCol, edCursorUnderlineStyle)
+			}
 		}
 
 		viewLines = append(viewLines, gutter+sep+" "+styledLine)
@@ -182,9 +187,9 @@ func (m EditorModel) View() string {
 	return theme.ApplyEffects(CurrentTheme(), output)
 }
 
-func renderCursorLine(line string, col int, inCodeBlock bool) string {
+func renderCursorLine(line string, col int, cursorStyle lipgloss.Style) string {
 	if len(line) == 0 {
-		return edCursorBlockStyle.Render(" ")
+		return cursorStyle.Render(" ")
 	}
 
 	var result strings.Builder
@@ -193,14 +198,14 @@ func renderCursorLine(line string, col int, inCodeBlock bool) string {
 	for i, r := range runes {
 		s := string(r)
 		if i == col {
-			result.WriteString(edCursorBlockStyle.Render(s))
+			result.WriteString(cursorStyle.Render(s))
 		} else {
 			result.WriteString(edTextStyle.Render(s))
 		}
 	}
 
 	if col >= len(runes) {
-		result.WriteString(edCursorBlockStyle.Render(" "))
+		result.WriteString(cursorStyle.Render(" "))
 	}
 
 	return result.String()
